@@ -1,0 +1,6 @@
+<RCC>
+    <qresource prefix="/SerialPort_module0729"/>
+    <qresource prefix="/img">
+        <file>3c7.ico</file>
+    </qresource>
+</RCC>
