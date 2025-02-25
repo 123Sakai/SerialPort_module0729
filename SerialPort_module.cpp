@@ -11,7 +11,7 @@ SerialPort_module::SerialPort_module(QObject *parent)
     //QObject::connect(serialport, &QSerialPort::readyRead, this, &SerialPort_module::serial_timerstart);
     //QObject::connect(timerserial, &QTimer::timeout, this, &SerialPort_module::get_data);
     connect(serialport, &QSerialPort::readyRead, this, &SerialPort_module::get_data);
-
+    connect(serialport, &QSerialPort::readyRead, this, &SerialPort_module::get_parsed_data);
     //connect()
 }
 
@@ -97,6 +97,7 @@ void SerialPort_module::send_ascii_data(QString sen)
     if (!sen.isEmpty())
     {
         QByteArray sentmp = sen.toLocal8Bit();
+        qDebug() << "send_ascii_data = " << sentmp;
         serialport->write(sentmp);
         sentmp.clear();
     }
@@ -111,6 +112,7 @@ void SerialPort_module::send_ascii_data(QString sen)
 
 void SerialPort_module::send_hex_data(QString sen)
 {
+    qDebug() << "send_hex_data1 sen= " << sen;
     uint8_t utmp[1024];
     uint8_t utmp2[50];
     memset(utmp, 0, sizeof(utmp));
@@ -160,6 +162,7 @@ void SerialPort_module::send_hex_data(QString sen)
         //sendBuf = sen.toLocal8Bit().toHex().toUpper();
     }
     QByteArray sentmp((char*)utmp2, (tlen / 2 + 1));
+    qDebug() << "send_hex_data2 sentmp = " << sentmp;
     serialport->write(sentmp);
     sen.clear();
     sentmp.clear();
@@ -194,10 +197,11 @@ void SerialPort_module::get_data()
     timerserial->stop();//停止定时器
     QString data = serial_timerstart();
     m_data.clear();
-    qDebug() << "raw buffer:" << data;
+    qDebug() << "get_data>>raw buffer1:" << data;
     emit dataReceived(data);
     //return m_data;
 }
+
 
 QString SerialPort_module::serial_timerstart()
 {
@@ -216,36 +220,15 @@ void SerialPort_module::sleep(int msec)
     }
 }
 
-//bool data_transmit::thrd_start()
-//{
-//    bool ret = false;
-//    thrmtx.lock();
-//    if (1)
-//    {
-//        ret = true;
-//    }
-//    thrmtx.unlock();
-//    return ret;
-//}
-//bool data_transmit::thrd_stop()
-//{
-//    bool ret = false;
-//    thrmtx.lock();
-//    if(1)
-//    {
-//        ret = true;
-//    }
-//    thrmtx.unlock();
-//    return ret;
-//}
-//bool data_transmit::thrd_running()
-//{
-//    bool ret = false;
-//    thrmtx.lock();
-//    if (1)
-//    {
-//        ret = true;
-//    }
-//    thrmtx.unlock();
-//    return ret;
-//}
+
+void SerialPort_module::get_parsed_data()
+{
+    QString task(serial_timerstart());
+    if (parseRecvDataInstance != nullptr)
+    {
+        parseRecvDataInstance->addTask(task.toStdString());
+    }
+    emit dataReceived_parse(task);
+}
+
+

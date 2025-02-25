@@ -3,6 +3,11 @@
 #include <QtWidgets/QMainWindow>
 #include <QDebug>
 #include <QString>
+
+#include<thread>
+#include <string>
+#include <vector>
+
 #include "ui_SerialPort_module0729.h"
 #include "SerialPort_module.h"
 #include "serialport_configuration.h"
@@ -31,4 +36,6 @@ private slots:
 private:
     Ui::SerialPort_module0729Class ui;
     SerialPort_module* m_serialPort;
+    parseRecvData parser;
+    //std::vector<int>& m_results;
 };
