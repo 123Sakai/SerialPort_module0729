@@ -112,14 +112,19 @@ void SerialPort_module::send_ascii_data(QString sen)
 
 void SerialPort_module::send_hex_data(QString sen)
 {
-    qDebug() << "send_hex_data1 sen= " << sen;
-    uint8_t utmp[1024];
-    uint8_t utmp2[50];
+    qDebug() << "send_hex_data1 sen = " << sen;
+    uint8_t is_r[1024];
+    uint8_t is_n[1024];
+    uint8_t utmp[2048];
+    uint8_t utmp2[1024];// 不写512是因为不好debug
     memset(utmp, 0, sizeof(utmp));
     memset(utmp2, 0, sizeof(utmp2));
-    int i, j, k;
-    float tlen = 0;
-    int len = 0;
+    memset(is_r, 0, sizeof(is_r));
+    memset(is_n, 0, sizeof(is_n));
+    int i = 0, j = 0, k = 0;// i 是utmp的容器长度(不带空格)；j 是sen的容器长度(带空格)；k 是整合以后的数据长度
+    int ir = 0, in = 0; // 这两个分别是放is_r和is_n的
+    float tlen = 0;// 最终去掉空格后sen的长度 
+    int len = 0;// 读到的数据的长度
     len = sen.length();
     if(sen.isEmpty())
     {
@@ -127,38 +132,92 @@ void SerialPort_module::send_hex_data(QString sen)
     }
     else
     {
+        //先toLocal8Bit
         sen = sen.toLocal8Bit();
+        qDebug() << "send_hex_data>>utmp toLocal8Bit:" << sen;
         j = 0;
         tlen = 0;
+        //后toLatin1
         for (i = 0; i < len; i++)
         {
-            if (sen[j] != ' ')
+            if (sen[j] != ' ' && sen[j] != '\r' && sen[j] != '\n')
             {
                 utmp[i] = (uint8_t)(sen[j].toLatin1());
+
+                qDebug() << "send_hex_data>>utmp toLatin1:" << utmp[i];
             }
             else if (sen[j] == ' ')
             {
-                j++;
-                i--;
+                j++;//sen跳过这个空格
+                i--;//缩回
                 continue;
             }
-            j++;
-            if (j >= len)
+            else if (sen[j] == '\r')
             {
-                tlen = i;
+                ir++;
+                utmp[i] = '\r';
+                is_r[ir] = i;
+                is_r[0] += 1;
+                qDebug() << "send_hex_data>>utmp toLatin1:" << utmp[i];
+            }
+            else if (sen[j] == '\n')
+            {
+                in++;
+                utmp[i] = '\n';
+                is_n[in] = i;
+                is_n[0] += 1;
+                qDebug() << "send_hex_data>>utmp toLatin1:" << utmp[i];
+            }
+            j++;
+            if (j >= len) // 如果j读到最后一个字节
+            {
+                tlen += i; // 把sen去掉空格后的数据长度存给tlen
                 break;
             }
         }
+        //再toHex
         for (i = 0; i < len; i++)
         {
             utmp[i] = ascii_to_hex(utmp[i]);
         }
+        //merge
         k = 0;
         for (i = 0; i < (tlen / 2 + 1); i++)
         {
             utmp2[k] = (utmp[i * 2 + 0] << 4) | (utmp[i * 2 + 1]);
             k++;
         }
+        if ((is_r[0] != 0))
+        {
+            for (int m = 1; m <= ir; m++)
+            {
+                if (is_r[m] % 2 == 1)
+                {
+                    utmp2[is_r[m] / 2 + 1] = (0x00 << 4) | '\r';
+                }
+                else
+                {
+                    utmp2[is_r[m] / 2] = (0x00 << 4) | '\r';
+                }
+                tlen++;
+            }
+        }
+        if ((is_n[0] != 0))
+        {
+            for (int m = 1; m <= in; m++)
+            {
+                if (is_n[m] % 2 == 1)
+                {
+                    utmp2[is_n[m] / 2 + 1] = (0x00 << 4) | '\n';
+                }
+                else
+                {
+                    utmp2[is_n[m] / 2] = (0x00 << 4) | '\n';
+                }
+                tlen++;
+            }
+        }
+
         //sendBuf = sen.toLocal8Bit().toHex().toUpper();
     }
     QByteArray sentmp((char*)utmp2, (tlen / 2 + 1));
@@ -195,20 +254,27 @@ int SerialPort_module::ascii_to_hex(char ch)
 void SerialPort_module::get_data()
 {
     timerserial->stop();//停止定时器
+    
     QString data = serial_timerstart();
+    QByteArray recvbuf = serial_timerstart();
+    qDebug() << "get_data>>raw buffer recvbuf 1:" << recvbuf;
+    qDebug() << "get_data>>raw buffer recvbuffer 1:" << recvbuffer;
     m_data.clear();
-    qDebug() << "get_data>>raw buffer1:" << data;
-    emit dataReceived(data);
+    recvbuffer.clear();
+    
+    emit dataReceived(recvbuf);
+    /*qDebug() << "get_data>>raw buffer data 1:" << data.toLatin1();
+    emit dataReceived(data.toLatin1());*/
     //return m_data;
 }
 
 
-QString SerialPort_module::serial_timerstart()
+QByteArray SerialPort_module::serial_timerstart()
 {
     //串口读数据周期时间，t=单个串口最大字节数/波特率(单位:ms)
     timerserial->start(100);
-    m_data.append(serialport->readAll());
-    return m_data;
+    recvbuffer.append(serialport->readAll());
+    return recvbuffer;
 }
 
 void SerialPort_module::sleep(int msec)
@@ -223,7 +289,7 @@ void SerialPort_module::sleep(int msec)
 
 void SerialPort_module::get_parsed_data()
 {
-    QString task(serial_timerstart());
+    QByteArray task(serial_timerstart());
     if (parseRecvDataInstance != nullptr)
     {
         parseRecvDataInstance->addTask(task.toStdString());

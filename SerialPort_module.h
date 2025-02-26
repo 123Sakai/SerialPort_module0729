@@ -46,14 +46,14 @@ public:
             threads.emplace_back(&parseRecvData::worker, this, i, std::ref(results), std::ref(data));
         }
 
-        // 等待所有线程完成
-        for (auto& t : threads)
-        {
-            if (t.joinable())
-            {
-                t.join();
-            }
-        }
+        //// 等待所有线程完成
+        //for (auto& t : threads)
+        //{
+        //    if (t.joinable())
+        //    {
+        //        t.join();
+        //    }
+        //}
     }
 
     // 添加任务到队列中，并通知一个等待的线程
@@ -117,6 +117,7 @@ private:
         { // 确保 id 在范围内
             results[id] = result;
         }
+        qDebug() << "result = " << result;
     }
 
 };
@@ -152,12 +153,12 @@ public:
     void send_ascii_data(QString sen);
     void get_data();
     void get_parsed_data();
-    QString serial_timerstart();
+    QByteArray serial_timerstart();
 
 signals:
 //    void com_list(const QStringList& comx);
-    void dataReceived(const QString& data);
-    void dataReceived_parse(const QString& data);
+    void dataReceived(const QByteArray& data);
+    void dataReceived_parse(const QByteArray& data);
 
 private:
     SerialPort_module() :m_dev_name(""), m_baudrate(115200),

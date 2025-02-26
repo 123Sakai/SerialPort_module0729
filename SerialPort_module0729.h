@@ -30,7 +30,7 @@ private slots:
     void on_sendButton_clicked();
     void on_clearButton_clicked();
     void update_comxlist(const QStringList& comx);
-    void recv_data(const QString &data);
+    void recv_data(const QByteArray &data);
 
     
 private:

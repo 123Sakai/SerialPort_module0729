@@ -80,6 +80,10 @@ void SerialPort_module0729::on_sendButton_clicked()
 {
     QString send_data;
     send_data = ui.send_text_window->toPlainText();
+    if (ui.isadd_rn->isChecked() == true)
+    {
+        send_data.append("\r\n");
+    }
     qDebug() << " ";
     qDebug() << "SerialPort_module0729::on_sendButton_clicked raw buffer:" << send_data;
     if (ui.ishex_send->isChecked() == false) // 文本发送
@@ -98,23 +102,30 @@ void SerialPort_module0729::on_clearButton_clicked()
     ui.receive_text_window->clear();
 }
 
-void SerialPort_module0729::recv_data(const QString &data)
+void SerialPort_module0729::recv_data(const QByteArray &data)
 {
-    qDebug() << "SerialPort_module0729::recv QString data = " << data;
-    
+    qDebug() << "SerialPort_module0729::recv QString data = " << data.data();
+    if (ui.ishex_send->isChecked()) // 如果用了hex发送，就一定要用hex收，否则release不过
+    {
+        ui.ishex_recv->setChecked(true);
+    }
     QDateTime currentTime = QDateTime::currentDateTime();
     QString currentTimeString = currentTime.toString(Qt::ISODate);
-    if (ui.ishex_recv->isChecked() && (ui.isuse_thread->isChecked() == false)) //不带解析的hex输出
+    if (ui.ishex_recv->isChecked() && (ui.isuse_thread->isChecked() == false)) // 不带解析的hex输出
     {
-        qDebug() << "SerialPort_module0729::recv data = " << data;
-        ui.isuse_thread->clicked(false); //判断有没有勾选线程解析，如果有，就取消这个勾选
-        ui.receive_text_window->append(currentTimeString + "\r\n" + data);
+        QString str(data.toHex().toUpper());
+        qDebug() << "SerialPort_module0729::recv data = " << data.toHex().toUpper();
+        ui.isuse_thread->clicked(false); // 判断有没有勾选线程解析，如果有，就取消这个勾选
+        ui.receive_text_window->append(currentTimeString + "\r\n" + str);
+        //ui.receive_text_window->append(currentTimeString + "\r\n" + QString::fromStdString(data.toLatin1().toHex().toUpper().constData()));
     }
     else if((ui.ishex_recv->isChecked() == false) && (ui.isuse_thread->isChecked() == false)) // 不带解析的普通输出
     { 
-        QByteArray test_byte = data.toUtf8();
-        qDebug() << "SerialPort_module0729::recv QByteArray test_byte = " << test_byte;
-        ui.receive_text_window->append(currentTimeString + "\r\n" + test_byte);
+        QString str(data.data());
+        //QByteArray test_byte = data.toUtf8();
+        //qDebug() << "SerialPort_module0729::recv QByteArray test_byte = " << test_byte;
+        qDebug() << "SerialPort_module0729::recv data = " << str;
+        ui.receive_text_window->append(currentTimeString + "\r\n" + str);
     }
     else if((ui.ishex_recv->isChecked() == false) && ui.isuse_thread->isChecked()) // 带解析的输出
     {
@@ -122,7 +133,13 @@ void SerialPort_module0729::recv_data(const QString &data)
         std::vector<int> results(10, -1);
 
         parser.startWorkers(str1, results);
-        ui.receive_text_window->append(currentTimeString + "\r\n" + data.toLocal8Bit());
+
+        parser.~parseRecvData();
+
+        QString str(str1.c_str());
+        qDebug() << "SerialPort_module0729::recv data = " << str;
+        ui.receive_text_window->append(currentTimeString + "\r\n" + str);
+        //ui.receive_text_window->append(currentTimeString + "\r\n" + data.toLocal8Bit());
     }
     
 }
